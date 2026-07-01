@@ -149,7 +149,8 @@ document.addEventListener('DOMContentLoaded', () => {
             initAudio();
             const title = card.querySelector('.card-title').innerText;
             if (title.includes('바카라')) openBaccaratGame(title);
-            else if (title.includes('홀짝')) openLotusOddEven(title);
+            else if (title.includes('홀짝')) openMiniGame(title, 'lotus');
+            else if (title.includes('사다리')) openMiniGame(title, 'ladder');
             else openConstruction(title);
         });
     });
@@ -364,40 +365,150 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ==========================================
-    // 홀짝 (로투스 - 확률 조작 동일 적용)
+    // 미니게임 (사다리 / 홀짝) 공통 모듈 (확률 조작, 바람잡이 포함)
     // ==========================================
-    function openLotusOddEven(title) {
+    let chatInterval = null;
+
+    function openMiniGame(title, gameType) {
         overlayTitle.innerText = title;
         gameOverlay.classList.remove('hidden');
+        if(chatInterval) clearInterval(chatInterval);
         
+        let isLadder = gameType === 'ladder';
+        let animHtml = '';
+        if (isLadder) {
+            animHtml = `
+                <div class="ladder-wrapper">
+                    <div class="ladder-bg"></div>
+                    <div class="ladder-char" id="ladder-char">🏃</div>
+                    <div class="ladder-result" id="ladder-result-text"></div>
+                </div>
+            `;
+        } else {
+            animHtml = `
+                <div class="powerball-machine">
+                    <div class="pb-ball">🎱</div>
+                    <div class="pb-ball">🔴</div>
+                    <div class="pb-ball">🔵</div>
+                    <div class="pb-result" id="pb-result"></div>
+                </div>
+            `;
+        }
+        let optionsHtml = '';
+        
+        if (isLadder) {
+            optionsHtml = `
+                <div class="mg-btn blue-btn option-btn" data-type="left">
+                    <span class="title">좌출발</span><span class="rate">1.95</span>
+                </div>
+                <div class="mg-btn red-btn option-btn" data-type="right">
+                    <span class="title">우출발</span><span class="rate">1.95</span>
+                </div>
+                <div class="mg-btn blue-btn option-btn" data-type="3line">
+                    <span class="title">3줄</span><span class="rate">1.95</span>
+                </div>
+                <div class="mg-btn red-btn option-btn" data-type="4line">
+                    <span class="title">4줄</span><span class="rate">1.95</span>
+                </div>
+            `;
+        } else {
+            optionsHtml = `
+                <div class="mg-btn blue-btn option-btn" data-type="odd">
+                    <span class="title">홀</span><span class="rate">1.95</span>
+                </div>
+                <div class="mg-btn red-btn option-btn" data-type="even">
+                    <span class="title">짝</span><span class="rate">1.95</span>
+                </div>
+                <div class="mg-btn blue-btn option-btn" data-type="under">
+                    <span class="title">언더</span><span class="rate">1.95</span>
+                </div>
+                <div class="mg-btn red-btn option-btn" data-type="over">
+                    <span class="title">오버</span><span class="rate">1.95</span>
+                </div>
+            `;
+        }
+
+        // 스코어보드 생성 (과거 패턴)
+        let scoreboardHtml = '';
+        for(let i=0; i<40; i++) {
+            let color = Math.random() > 0.5 ? 'red' : 'blue';
+            scoreboardHtml += `<span class="sb-dot ${color}"></span>`;
+        }
+
         overlayContent.innerHTML = `
-            <div class="game-container">
-                <div class="dealer-area">
-                    <h2 style="color:var(--accent-primary);">결과 추첨 대기중...</h2>
+            <div class="minigame-layout">
+                <div class="minigame-screen">
+                    <div class="round-info">제 ${Math.floor(Math.random()*100)+150}회차</div>
+                    <div id="mg-anim-container">${animHtml}</div>
+                    <div class="timer" id="mg-timer">00:15</div>
                 </div>
                 
-                <div style="text-align: center; color: #fff; font-size: 0.9rem;">잔액: <b style="color:var(--accent-primary);">${window.userBalance.toLocaleString()}</b> 원</div>
+                <div style="text-align: center; color: #fff; font-size: 1rem; margin-top: 5px;">현재 잔액: <b id="mg-current-balance" style="color:var(--accent-primary);">${window.userBalance.toLocaleString()}</b> 원</div>
                 
-                <div class="lotus-layout">
-                    <div class="lotus-section">
-                        <div class="lotus-row">
-                            <div class="lotus-btn option-btn" data-type="odd"><span class="badge blue">홀</span>1.95</div>
-                            <div class="lotus-btn option-btn" data-type="even"><span class="badge red">짝</span>1.95</div>
-                        </div>
-                        <div class="lotus-row">
-                            <div class="lotus-btn option-btn" data-type="3line"><span class="badge blue">3줄</span>1.95</div>
-                            <div class="lotus-btn option-btn" data-type="4line"><span class="badge red">4줄</span>1.95</div>
-                        </div>
+                <div class="minigame-options">
+                    ${optionsHtml}
+                </div>
+                
+                <div class="quick-bet-area">
+                    <div class="quick-btn-grid">
+                        <button class="quick-btn" data-val="10000">+1만</button>
+                        <button class="quick-btn" data-val="50000">+5만</button>
+                        <button class="quick-btn" data-val="100000">+10만</button>
+                        <button class="quick-btn" data-val="1000000">+100만</button>
+                        <button class="quick-btn max" data-val="max">MAX</button>
+                        <button class="quick-btn reset" data-val="reset">초기화</button>
                     </div>
-                    <button class="btn-full-pink" id="lotus-bet-btn" style="padding: 15px; font-size: 1.2rem;">배팅 확정 (10,000원)</button>
+                    <div class="amount-input-box">
+                        <span>베팅 금액</span>
+                        <b id="mg-bet-amount">0</b>
+                    </div>
+                    <button class="btn-full-pink" id="mg-bet-btn" style="padding: 15px; font-size: 1.2rem;">베팅하기</button>
+                </div>
+                
+                <div class="scoreboard-area">
+                    <div class="scoreboard-header">📈 최근 결과 (출목표)</div>
+                    <div class="scoreboard-grid" id="mg-scoreboard">
+                        ${scoreboardHtml}
+                    </div>
+                </div>
+                
+                <div class="fake-chat-box" id="fake-chat-box">
+                    <div class="chat-msg"><span class="name">관리자</span><span class="text">욕설 및 도배는 제재 대상입니다.</span></div>
                 </div>
             </div>
         `;
         
         let selectedOption = null;
+        let currentBet = 0;
+        let isBettingClosed = false;
         
+        const betAmountText = document.getElementById('mg-bet-amount');
+        const betBtn = document.getElementById('mg-bet-btn');
+        const timerText = document.getElementById('mg-timer');
+        const chatBox = document.getElementById('fake-chat-box');
+        
+        // 퀵 버튼 로직
+        overlayContent.querySelectorAll('.quick-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                if(isBettingClosed) return;
+                playSound('chip');
+                const val = btn.getAttribute('data-val');
+                if (val === 'reset') {
+                    currentBet = 0;
+                } else if (val === 'max') {
+                    currentBet = window.userBalance;
+                } else {
+                    currentBet += parseInt(val);
+                }
+                if (currentBet > window.userBalance) currentBet = window.userBalance;
+                betAmountText.innerText = currentBet.toLocaleString();
+            });
+        });
+        
+        // 옵션 선택 로직
         overlayContent.querySelectorAll('.option-btn').forEach(btn => {
             btn.addEventListener('click', () => {
+                if(isBettingClosed) return;
                 playSound('chip');
                 overlayContent.querySelectorAll('.option-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
@@ -405,66 +516,199 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
         
-        document.getElementById('lotus-bet-btn').addEventListener('click', () => {
-            if (!selectedOption) {
-                playSound('lose');
-                alert('배팅할 옵션을 선택해주세요.');
+        // 바람잡이 채팅 로직
+        const fakeNames = ["수익왕", "김회장", "오늘만산다", "홀짝의신", "박프로", "사다리타자", "건물주되자", "ㅅㅅㅅ", "픽스터정"];
+        const fakeMsgs = [
+            "이번엔 무조건 짝입니다 탑승하세요", 
+            "아까 100만 먹음 ㅋㅋㅋ", 
+            "좌출발 픽 확실합니까?", 
+            "오늘만 500환전 ㅅㅅㅅ", 
+            "줄 꺾일때 됐음 반대로 가자", 
+            "믿고 풀벳 갑니다", 
+            "관리자님 충전 확인좀요"
+        ];
+        
+        chatInterval = setInterval(() => {
+            if (gameOverlay.classList.contains('hidden') || overlayTitle.innerText !== title) {
+                clearInterval(chatInterval);
                 return;
             }
-            if (window.userBalance < 10000) {
+            if (Math.random() > 0.3) {
+                const name = fakeNames[Math.floor(Math.random() * fakeNames.length)];
+                const msg = fakeMsgs[Math.floor(Math.random() * fakeMsgs.length)];
+                const div = document.createElement('div');
+                div.className = 'chat-msg';
+                div.innerHTML = `<span class="name">${name}</span><span class="text">${msg}</span>`;
+                chatBox.appendChild(div);
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+        }, 1500);
+        
+        // 타이머 및 베팅 로직
+        let timeLeft = 12; // 자극적으로 짧게
+        const gameInterval = setInterval(() => {
+            if (gameOverlay.classList.contains('hidden') || overlayTitle.innerText !== title) {
+                clearInterval(gameInterval);
+                return;
+            }
+            timeLeft--;
+            
+            let secs = timeLeft < 10 ? '0' + timeLeft : timeLeft;
+            timerText.innerText = `00:${secs}`;
+            
+            if (timeLeft <= 3 && timeLeft > 0) {
+                timerText.classList.add('urgent');
+                playSound('tick');
+            }
+            
+            if (timeLeft <= 0) {
+                clearInterval(gameInterval);
+                timerText.innerText = "마감";
+                timerText.classList.remove('urgent');
+                isBettingClosed = true;
+                
+                if(betBtn.innerText === '베팅하기') {
+                    betBtn.disabled = true;
+                    betBtn.innerText = '베팅 마감됨';
+                    betBtn.style.backgroundColor = '#555';
+                    executeGameResult();
+                } else if (betBtn.innerText === '베팅 완료 (대기중)') {
+                    executeGameResult();
+                }
+            }
+        }, 1000);
+        
+        betBtn.addEventListener('click', () => {
+            if (isBettingClosed || betBtn.disabled) return;
+            if (!selectedOption) {
+                playSound('lose');
+                alert('베팅할 옵션을 선택해주세요.');
+                return;
+            }
+            if (currentBet <= 0) {
+                playSound('lose');
+                alert('베팅 금액을 설정해주세요.');
+                return;
+            }
+            if (currentBet > window.userBalance) {
                 playSound('lose');
                 alert('잔액이 부족합니다.');
                 return;
             }
             
             playSound('chip');
-            window.updateBalance(-10000);
-            const btn = document.getElementById('lotus-bet-btn');
-            btn.disabled = true;
-            btn.innerText = '결과 확인 중...';
-            btn.style.backgroundColor = '#555';
+            window.updateBalance(-currentBet);
+            document.getElementById('mg-current-balance').innerText = window.userBalance.toLocaleString();
+            betBtn.disabled = true;
+            betBtn.innerText = '베팅 완료 (대기중)';
+            betBtn.style.backgroundColor = '#555';
+        });
+        
+        function executeGameResult() {
+            playSound('tick');
+            
+            // 확률 조작: 4회 이하 승리, 그 이후 패배
+            let winResult;
+            window.playCount++;
+            if (!selectedOption) {
+                // 선택 안한 경우 랜덤
+                let allOpts = isLadder ? ['left', 'right', '3line', '4line'] : ['odd', 'even', 'under', 'over'];
+                winResult = allOpts[Math.floor(Math.random() * allOpts.length)];
+                window.playCount--; // 베팅 안했으니 카운트 취소
+            } else if (window.playCount <= 4) {
+                winResult = selectedOption;
+            } else {
+                let allOpts = isLadder ? ['left', 'right', '3line', '4line'] : ['odd', 'even', 'under', 'over'];
+                let others = allOpts.filter(o => o !== selectedOption);
+                winResult = others[Math.floor(Math.random() * others.length)];
+            }
+
+            // 애니메이션 시작
+            let resultNum;
+            if (winResult === 'odd' || winResult === 'left' || winResult === '3line' || winResult === 'under') {
+                resultNum = Math.floor(Math.random() * 5) * 2 + 1; // 홀수: 1,3,5,7,9
+            } else {
+                resultNum = Math.floor(Math.random() * 5) * 2 + 2; // 짝수: 2,4,6,8,10
+            }
+
+            if (isLadder) {
+                const char = document.getElementById('ladder-char');
+                // 지그재그 방향 결정
+                if (resultNum % 2 !== 0) {
+                    char.style.animation = 'climb-down-left 3s forwards';
+                } else {
+                    char.style.animation = 'climb-down-right 3s forwards';
+                }
+            } else {
+                const pbRes = document.getElementById('pb-result');
+                pbRes.innerText = resultNum;
+                pbRes.style.backgroundColor = (resultNum % 2 !== 0) ? '#1a73e8' : '#ea4335';
+                pbRes.classList.add('show');
+            }
             
             setTimeout(() => {
-                window.playCount++;
-                
-                // 확률 조작
-                let winResult;
-                if (window.playCount <= 4) {
-                    winResult = selectedOption; // 무조건 승리
-                } else {
-                    // 무조건 패배
-                    const results = ['odd', 'even', '3line', '4line'].filter(r => r !== selectedOption);
-                    winResult = results[Math.floor(Math.random() * results.length)];
+                if(!selectedOption || betBtn.innerText === '베팅 마감됨' && currentBet === 0) {
+                    setTimeout(() => openMiniGame(title, gameType), 2000);
+                    return;
                 }
                 
                 let winAmount = 0;
                 if (selectedOption === winResult) {
-                    winAmount = 19500;
+                    winAmount = currentBet * 1.95;
                     window.updateBalance(winAmount);
+                    document.getElementById('mg-current-balance').innerText = window.userBalance.toLocaleString();
+                }
+                
+                // 결과 번호 표시 (사다리의 경우)
+                if (isLadder) {
+                    const lRes = document.getElementById('ladder-result-text');
+                    lRes.innerText = (resultNum % 2 !== 0) ? '홀' : '짝';
+                    lRes.style.color = (resultNum % 2 !== 0) ? '#1a73e8' : '#ea4335';
+                    lRes.classList.add('show');
                 }
                 
                 overlayContent.querySelectorAll('.option-btn').forEach(b => {
                     if (b.getAttribute('data-type') === winResult) {
-                        b.style.borderColor = 'var(--accent-primary)';
-                        b.style.boxShadow = '0 0 20px var(--accent-primary)';
+                        b.classList.add('active');
+                        b.style.boxShadow = '0 0 20px #ffd700';
                         b.style.backgroundColor = 'rgba(255,215,0,0.5)';
                     } else {
                         b.style.opacity = '0.3';
                     }
                 });
                 
+                const sb = document.getElementById('mg-scoreboard');
+                const dot = document.createElement('span');
+                dot.className = `sb-dot ${(resultNum % 2 !== 0) ? 'blue' : 'red'}`; 
+                sb.insertBefore(dot, sb.firstChild);
+                
+                // 팝업 표시
+                const popup = document.createElement('div');
+                popup.className = 'result-popup';
+                
                 if (winAmount > 0) {
                     showWinEffect();
+                    popup.innerHTML = `
+                        <h2 style="font-size: 2rem;">🎉 적중 성공! 🎉</h2>
+                        <div class="amount" style="font-size: 2.5rem; font-weight: bold; color: #ffd700;">+${winAmount.toLocaleString()} 원</div>
+                        <p style="color:#fff;">패턴을 완벽히 읽으셨네요!</p>
+                    `;
                 } else {
                     showLoseEffect();
+                    popup.innerHTML = `
+                        <h2 style="color: #ff3366;">❌ 미적중 실패 ❌</h2>
+                        <div style="color:red; font-size: 1.5rem; font-weight: bold; margin-top: 10px;">-${currentBet.toLocaleString()} 원</div>
+                        <p style="color:#aaa;">아쉽습니다. 다음 회차를 노리세요.</p>
+                    `;
                 }
+                overlayContent.appendChild(popup);
                 
                 setTimeout(() => {
-                    openLotusOddEven(title); // 재시작
-                }, 2500);
+                    openMiniGame(title, gameType); // 재시작
+                }, 3000);
                 
-            }, 1500);
-        });
+            }, 3000); // 애니메이션 대기 시간
+        }
     }
 
     // ==========================================
