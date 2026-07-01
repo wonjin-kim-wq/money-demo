@@ -180,7 +180,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // 바카라 / 스피드바카라 (확률 조작 포함)
     // ==========================================
     function openBaccaratGame(title) {
+        gameOverlay.setAttribute('data-current-game', title);
         overlayTitle.innerText = title;
+        closeOverlayBtn.innerText = '닫기';
+        closeOverlayBtn.style.color = 'var(--accent-primary)';
+        closeOverlayBtn.style.fontWeight = 'normal';
         gameOverlay.classList.remove('hidden');
         
         let isSpeed = title.includes('스피드');
@@ -263,7 +267,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 조급함 유발 타이머
         const interval = setInterval(() => {
-            if (!gameOverlay.classList.contains('hidden') && overlayTitle.innerText === title) {
+            if (!gameOverlay.classList.contains('hidden') && gameOverlay.getAttribute('data-current-game') === title) {
                 timeLeft -= 0.1;
                 timeText.innerText = Math.max(0, Math.ceil(timeLeft));
                 
@@ -370,7 +374,17 @@ document.addEventListener('DOMContentLoaded', () => {
     let chatInterval = null;
 
     function openMiniGame(title, gameType) {
-        overlayTitle.innerText = title;
+        gameOverlay.setAttribute('data-current-game', title);
+        overlayTitle.innerHTML = `
+            <div style="display: flex; align-items: center; justify-content: center; position: relative;">
+                <span style="color:#fff; font-weight:bold;">${title}</span>
+                <span id="help-btn" style="position: absolute; right: 0; background: #333; border: 1px solid #555; color: #fff; font-size: 0.8rem; padding: 2px 8px; border-radius: 12px; cursor: pointer;">? 게임 방법</span>
+            </div>
+        `;
+        closeOverlayBtn.innerText = '< 뒤로';
+        closeOverlayBtn.style.color = '#ffd700';
+        closeOverlayBtn.style.fontWeight = 'bold';
+        
         gameOverlay.classList.remove('hidden');
         if(chatInterval) clearInterval(chatInterval);
         
@@ -378,11 +392,15 @@ document.addEventListener('DOMContentLoaded', () => {
         let animHtml = '';
         if (isLadder) {
             animHtml = `
-                <div class="ladder-wrapper">
-                    <div class="ladder-bg"></div>
-                    <div class="ladder-char" id="ladder-char">🏃</div>
-                    <div class="ladder-result" id="ladder-result-text"></div>
-                </div>
+                <svg class="ladder-svg-container" id="ladder-svg" viewBox="0 0 100 100">
+                    <!-- 초기 더미 렌더링 (execute 시점에 실제 로직 렌더링) -->
+                    <line x1="20" y1="10" x2="20" y2="90" class="ladder-base-line" />
+                    <line x1="80" y1="10" x2="80" y2="90" class="ladder-base-line" />
+                    <line x1="20" y1="30" x2="80" y2="30" class="ladder-base-line" />
+                    <line x1="20" y1="50" x2="80" y2="50" class="ladder-base-line" />
+                    <line x1="20" y1="70" x2="80" y2="70" class="ladder-base-line" />
+                </svg>
+                <div class="ladder-result" id="ladder-result-text"></div>
             `;
         } else {
             animHtml = `
@@ -420,10 +438,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="title">짝</span><span class="rate">1.95</span>
                 </div>
                 <div class="mg-btn blue-btn option-btn" data-type="under">
-                    <span class="title">언더</span><span class="rate">1.95</span>
+                    <span class="title">언더</span>
+                    <span style="font-size: 0.75rem; color: #ffd700; margin: 2px 0; font-weight: bold;">(72.5 미만)</span>
+                    <span class="rate">1.95</span>
                 </div>
                 <div class="mg-btn red-btn option-btn" data-type="over">
-                    <span class="title">오버</span><span class="rate">1.95</span>
+                    <span class="title">오버</span>
+                    <span style="font-size: 0.75rem; color: #ffd700; margin: 2px 0; font-weight: bold;">(72.5 초과)</span>
+                    <span class="rate">1.95</span>
                 </div>
             `;
         }
@@ -434,8 +456,21 @@ document.addEventListener('DOMContentLoaded', () => {
             let color = Math.random() > 0.5 ? 'red' : 'blue';
             scoreboardHtml += `<span class="sb-dot ${color}"></span>`;
         }
+        
+        let helpModalHtml = `
+            <div id="help-modal" class="hidden" style="position: absolute; top: 0; right: 0; background: rgba(0,0,0,0.95); border: 1px solid var(--accent-primary); padding: 15px; border-radius: 8px; color: #fff; z-index: 2000; width: 250px; box-shadow: 0 0 15px rgba(0,0,0,0.8);">
+                <h4 style="margin: 0 0 10px 0; color: #ffd700; border-bottom: 1px solid #555; padding-bottom: 5px;">📖 게임 방법</h4>
+                <ul style="padding-left: 20px; margin: 0; font-size: 0.85rem; line-height: 1.6;">
+                    <li><b style="color:var(--accent-primary);">[좌/우 출발]</b>: 사다리가 처음 시작되는 위치</li>
+                    <li><b style="color:var(--accent-primary);">[3줄/4줄]</b>: 세로줄을 연결하는 가로줄의 총 개수</li>
+                    <li><b style="color:var(--accent-primary);">[홀/짝]</b>: 사다리/공 추첨의 최종 번호 결과</li>
+                    <li><b style="color:var(--accent-primary);">[언더/오버]</b>: 결과값이 기준점(72.5) 미만인지 초과인지 예측</li>
+                </ul>
+            </div>
+        `;
 
         overlayContent.innerHTML = `
+            ${helpModalHtml}
             <div class="minigame-layout">
                 <div class="minigame-screen">
                     <div class="round-info">제 ${Math.floor(Math.random()*100)+150}회차</div>
@@ -487,6 +522,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const timerText = document.getElementById('mg-timer');
         const chatBox = document.getElementById('fake-chat-box');
         
+        const helpBtn = document.getElementById('help-btn');
+        const helpModal = document.getElementById('help-modal');
+        if (helpBtn && helpModal) {
+            helpBtn.addEventListener('mouseenter', () => helpModal.classList.remove('hidden'));
+            helpBtn.addEventListener('mouseleave', () => helpModal.classList.add('hidden'));
+            helpBtn.addEventListener('click', () => helpModal.classList.toggle('hidden'));
+        }
+        
         // 퀵 버튼 로직
         overlayContent.querySelectorAll('.quick-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -529,7 +572,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ];
         
         chatInterval = setInterval(() => {
-            if (gameOverlay.classList.contains('hidden') || overlayTitle.innerText !== title) {
+            if (gameOverlay.classList.contains('hidden') || gameOverlay.getAttribute('data-current-game') !== title) {
                 clearInterval(chatInterval);
                 return;
             }
@@ -547,7 +590,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 타이머 및 베팅 로직
         let timeLeft = 12; // 자극적으로 짧게
         const gameInterval = setInterval(() => {
-            if (gameOverlay.classList.contains('hidden') || overlayTitle.innerText !== title) {
+            if (gameOverlay.classList.contains('hidden') || gameOverlay.getAttribute('data-current-game') !== title) {
                 clearInterval(gameInterval);
                 return;
             }
@@ -607,44 +650,107 @@ document.addEventListener('DOMContentLoaded', () => {
         function executeGameResult() {
             playSound('tick');
             
-            // 확률 조작: 4회 이하 승리, 그 이후 패배
-            let winResult;
             window.playCount++;
-            if (!selectedOption) {
-                // 선택 안한 경우 랜덤
-                let allOpts = isLadder ? ['left', 'right', '3line', '4line'] : ['odd', 'even', 'under', 'over'];
-                winResult = allOpts[Math.floor(Math.random() * allOpts.length)];
-                window.playCount--; // 베팅 안했으니 카운트 취소
-            } else if (window.playCount <= 4) {
-                winResult = selectedOption;
-            } else {
-                let allOpts = isLadder ? ['left', 'right', '3line', '4line'] : ['odd', 'even', 'under', 'over'];
-                let others = allOpts.filter(o => o !== selectedOption);
-                winResult = others[Math.floor(Math.random() * others.length)];
-            }
-
-            // 애니메이션 시작
-            let resultNum;
-            if (winResult === 'odd' || winResult === 'left' || winResult === '3line' || winResult === 'under') {
-                resultNum = Math.floor(Math.random() * 5) * 2 + 1; // 홀수: 1,3,5,7,9
-            } else {
-                resultNum = Math.floor(Math.random() * 5) * 2 + 2; // 짝수: 2,4,6,8,10
-            }
+            let winResult;
+            let finalStart, finalLines, isOdd, resultNum, winAmount = 0;
+            let won = false;
 
             if (isLadder) {
-                const char = document.getElementById('ladder-char');
-                // 지그재그 방향 결정
-                if (resultNum % 2 !== 0) {
-                    char.style.animation = 'climb-down-left 3s forwards';
+                // 사다리 로직 결정
+                if (!selectedOption) {
+                    finalStart = Math.random() > 0.5 ? 'left' : 'right';
+                    finalLines = Math.random() > 0.5 ? 3 : 4;
+                    window.playCount--; 
+                } else if (window.playCount <= 4) {
+                    // 무조건 승리
+                    if (selectedOption === 'left' || selectedOption === 'right') {
+                        finalStart = selectedOption;
+                        finalLines = Math.random() > 0.5 ? 3 : 4;
+                    } else {
+                        finalLines = selectedOption === '3line' ? 3 : 4;
+                        finalStart = Math.random() > 0.5 ? 'left' : 'right';
+                    }
                 } else {
-                    char.style.animation = 'climb-down-right 3s forwards';
+                    // 무조건 패배
+                    if (selectedOption === 'left' || selectedOption === 'right') {
+                        finalStart = selectedOption === 'left' ? 'right' : 'left';
+                        finalLines = Math.random() > 0.5 ? 3 : 4;
+                    } else {
+                        finalLines = selectedOption === '3line' ? 4 : 3;
+                        finalStart = Math.random() > 0.5 ? 'left' : 'right';
+                    }
                 }
+
+                // 결과 도출
+                isOdd = false;
+                if (finalStart === 'left' && finalLines === 4) isOdd = true;
+                if (finalStart === 'right' && finalLines === 3) isOdd = true;
+                resultNum = isOdd ? (Math.floor(Math.random() * 5) * 2 + 1) : (Math.floor(Math.random() * 5) * 2 + 2);
+                
+                if (selectedOption === finalStart || selectedOption === finalLines+'line') won = true;
+                winResult = won ? selectedOption : 'fake';
+
+                // SVG 렌더링
+                const svgBase = document.getElementById('ladder-svg');
+                let svgHtml = `
+                    <line x1="20" y1="10" x2="20" y2="90" class="ladder-base-line" />
+                    <line x1="80" y1="10" x2="80" y2="90" class="ladder-base-line" />
+                `;
+                const ySpacing = 80 / (finalLines + 1);
+                for(let i=1; i<=finalLines; i++) {
+                    let y = 10 + i * ySpacing;
+                    svgHtml += `<line x1="20" y1="${y}" x2="80" y2="${y}" class="ladder-base-line" />`;
+                }
+                
+                let currentX = (finalStart === 'left') ? 20 : 80;
+                let pathD = `M ${currentX} 10 `;
+                for(let i=1; i<=finalLines; i++) {
+                    let y = 10 + i * ySpacing;
+                    pathD += `L ${currentX} ${y} `;
+                    currentX = (currentX === 20) ? 80 : 20;
+                    pathD += `L ${currentX} ${y} `;
+                }
+                pathD += `L ${currentX} 90`;
+                
+                svgHtml += `<path id="ladder-active" class="ladder-active-path" d="${pathD}" />`;
+                svgBase.innerHTML = svgHtml;
+                
+                const activePath = document.getElementById('ladder-active');
+                const pathLength = activePath.getTotalLength();
+                activePath.style.strokeDasharray = pathLength;
+                activePath.style.strokeDashoffset = pathLength;
+                
+                activePath.getBoundingClientRect(); // reflow
+                activePath.style.transition = 'stroke-dashoffset 3s linear';
+                activePath.style.strokeDashoffset = '0';
+
             } else {
+                // 파워볼 로직 결정
+                if (!selectedOption) {
+                    let allOpts = ['odd', 'even', 'under', 'over'];
+                    winResult = allOpts[Math.floor(Math.random() * allOpts.length)];
+                    window.playCount--; 
+                } else if (window.playCount <= 4) {
+                    winResult = selectedOption;
+                    won = true;
+                } else {
+                    let allOpts = ['odd', 'even', 'under', 'over'];
+                    let others = allOpts.filter(o => o !== selectedOption);
+                    winResult = others[Math.floor(Math.random() * others.length)];
+                }
+
+                if (winResult === 'odd' || winResult === 'under') {
+                    resultNum = Math.floor(Math.random() * 5) * 2 + 1; // 홀수
+                } else {
+                    resultNum = Math.floor(Math.random() * 5) * 2 + 2; // 짝수
+                }
+
                 const pbRes = document.getElementById('pb-result');
                 pbRes.innerText = resultNum;
                 pbRes.style.backgroundColor = (resultNum % 2 !== 0) ? '#1a73e8' : '#ea4335';
                 pbRes.classList.add('show');
             }
+            
             
             setTimeout(() => {
                 if(!selectedOption || betBtn.innerText === '베팅 마감됨' && currentBet === 0) {
@@ -652,8 +758,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
                 
-                let winAmount = 0;
-                if (selectedOption === winResult) {
+                if (won) {
                     winAmount = currentBet * 1.95;
                     window.updateBalance(winAmount);
                     document.getElementById('mg-current-balance').innerText = window.userBalance.toLocaleString();
@@ -716,6 +821,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================
     function openDeposit(title) {
         overlayTitle.innerText = title;
+        closeOverlayBtn.innerText = '닫기';
+        closeOverlayBtn.style.color = 'var(--accent-primary)';
+        closeOverlayBtn.style.fontWeight = 'normal';
         gameOverlay.classList.remove('hidden');
         
         overlayContent.innerHTML = `
