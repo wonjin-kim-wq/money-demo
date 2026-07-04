@@ -994,6 +994,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert('10,000원 이상 입력해주세요.');
                 return;
             }
+            if (amt > 50000) {
+                playSound('lose');
+                alert('현재 회원 등급(일반)의 1회 최대 충전 한도는 50,000원입니다.\n\n(※ 시뮬레이션 목적상 100만 원 목표 달성을 위해 배팅을 진행해야 합니다.)');
+                return;
+            }
             playSound('win');
             alert(`[경고]\n이 계좌는 보이스피싱 및 불법 도박 자금 세탁에 사용되는 대포통장입니다.\n데모를 위해 가상으로 ${amt.toLocaleString()}원이 충전됩니다.`);
             
