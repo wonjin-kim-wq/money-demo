@@ -178,6 +178,30 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ==========================================
+    // 공통 확률 조작 알고리즘 (백만원 만들기 달성 유도)
+    // ==========================================
+    function getRiggedOutcome(betAmount, rate) {
+        // 이미 100만 원 달성 시 무조건 패배시켜 환전 유도
+        if (window.userBalance >= 1000000) {
+            return false;
+        }
+
+        // 파산(올인) 방지: 현재 잔액이 0원(전액 베팅)인 경우 무조건 승리시켜 생존시킴
+        if (window.userBalance === 0 && betAmount > 0) {
+            return true;
+        }
+
+        const winAmount = betAmount * rate;
+        // 5판도 안됐는데 100만 원 초과 시 너무 빠르므로 패배 유도 (단, 올인은 위에서 걸러짐)
+        if (window.userBalance + winAmount >= 1000000 && window.playCount < 5) {
+            return false;
+        }
+
+        // 기본적으로 75%의 높은 승률을 주어 서서히 돈을 불려나가게 함
+        return Math.random() < 0.75;
+    }
+
+    // ==========================================
     // 바카라 / 스피드바카라 (확률 조작 포함)
     // ==========================================
     function openBaccaratGame(title) {
@@ -306,14 +330,15 @@ document.addEventListener('DOMContentLoaded', () => {
         function showBaccaratResult(betType) {
             window.playCount++;
             
-            // 핵심: 조작된 확률 (4번까지는 사용자가 건 쪽에 무조건 승리, 이후 무조건 패배)
             let result;
             if (betType) {
-                if (window.playCount <= 4) {
-                    // 무조건 적중
+                // 스마트 확률 조작 알고리즘 연동 (배팅금액 10000원 고정)
+                let rate = parseFloat(document.querySelector(`.bet-area.${betType}`).getAttribute('data-rate'));
+                let isWin = getRiggedOutcome(10000, rate);
+                
+                if (isWin) {
                     result = betType;
                 } else {
-                    // 무조건 실패 (사용자가 안 건 쪽 선택)
                     const others = ['player', 'banker', 'tie'].filter(t => t !== betType);
                     result = others[Math.floor(Math.random() * others.length)];
                 }
@@ -361,6 +386,10 @@ document.addEventListener('DOMContentLoaded', () => {
             overlayContent.appendChild(popup);
             
             setTimeout(() => {
+                if (window.userBalance >= 1000000) {
+                    alert("💰 목표 금액 1,000,000원을 달성했습니다!\n이제 메인 화면의 [환전] 메뉴로 이동하여 수익금을 출금해 보세요.");
+                }
+                
                 if (!gameOverlay.classList.contains('hidden')) {
                     // 다시 게임 화면 렌더링해서 무한 반복 유도
                     openBaccaratGame(title);
@@ -662,23 +691,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     finalStart = Math.random() > 0.5 ? 'left' : 'right';
                     finalLines = Math.random() > 0.5 ? 3 : 4;
                     window.playCount--; 
-                } else if (window.playCount <= 4) {
-                    // 무조건 승리
-                    if (selectedOption === 'left' || selectedOption === 'right') {
-                        finalStart = selectedOption;
-                        finalLines = Math.random() > 0.5 ? 3 : 4;
-                    } else {
-                        finalLines = selectedOption === '3line' ? 3 : 4;
-                        finalStart = Math.random() > 0.5 ? 'left' : 'right';
-                    }
                 } else {
-                    // 무조건 패배
-                    if (selectedOption === 'left' || selectedOption === 'right') {
-                        finalStart = selectedOption === 'left' ? 'right' : 'left';
-                        finalLines = Math.random() > 0.5 ? 3 : 4;
+                    let rate = 1.95; // 사다리 고정 배당률
+                    won = getRiggedOutcome(currentBet, rate);
+                    
+                    if (won) {
+                        if (selectedOption === 'left' || selectedOption === 'right') {
+                            finalStart = selectedOption;
+                            finalLines = Math.random() > 0.5 ? 3 : 4;
+                        } else {
+                            finalLines = selectedOption === '3line' ? 3 : 4;
+                            finalStart = Math.random() > 0.5 ? 'left' : 'right';
+                        }
                     } else {
-                        finalLines = selectedOption === '3line' ? 4 : 3;
-                        finalStart = Math.random() > 0.5 ? 'left' : 'right';
+                        if (selectedOption === 'left' || selectedOption === 'right') {
+                            finalStart = selectedOption === 'left' ? 'right' : 'left';
+                            finalLines = Math.random() > 0.5 ? 3 : 4;
+                        } else {
+                            finalLines = selectedOption === '3line' ? 4 : 3;
+                            finalStart = Math.random() > 0.5 ? 'left' : 'right';
+                        }
                     }
                 }
 
@@ -731,13 +763,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     let allOpts = ['odd', 'even', 'under', 'over'];
                     winResult = allOpts[Math.floor(Math.random() * allOpts.length)];
                     window.playCount--; 
-                } else if (window.playCount <= 4) {
-                    winResult = selectedOption;
-                    won = true;
                 } else {
-                    let allOpts = ['odd', 'even', 'under', 'over'];
-                    let others = allOpts.filter(o => o !== selectedOption);
-                    winResult = others[Math.floor(Math.random() * others.length)];
+                    let rate = 1.95;
+                    won = getRiggedOutcome(currentBet, rate);
+                    
+                    if (won) {
+                        winResult = selectedOption;
+                    } else {
+                        let allOpts = ['odd', 'even', 'under', 'over'];
+                        let others = allOpts.filter(o => o !== selectedOption);
+                        winResult = others[Math.floor(Math.random() * others.length)];
+                    }
                 }
 
                 if (winResult === 'odd' || winResult === 'under') {
@@ -810,6 +846,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 overlayContent.appendChild(popup);
                 
                 setTimeout(() => {
+                    if (window.userBalance >= 1000000) {
+                        alert("💰 목표 금액 1,000,000원을 달성했습니다!\n이제 메인 화면의 [환전] 메뉴로 이동하여 수익금을 출금해 보세요.");
+                    }
                     openMiniGame(title, gameType); // 재시작
                 }, 3000);
                 
