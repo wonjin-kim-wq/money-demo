@@ -592,3 +592,28 @@ body {
         transform: translateY(0);
     }
 }
+
+/* Maintenance / Disabled Styles */
+.menu-item.disabled-menu {
+    opacity: 0.5;
+    position: relative;
+}
+
+.casino-card.disabled-menu {
+    opacity: 0.7;
+    position: relative;
+}
+
+.maintenance-badge {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background-color: #555;
+    color: #fff;
+    font-size: 0.55rem;
+    padding: 2px 5px;
+    border-radius: 4px;
+    border: 1px solid #777;
+    z-index: 10;
+    box-shadow: 0 0 5px rgba(0,0,0,0.5);
+}
