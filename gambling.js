@@ -103,12 +103,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         // 잠시 후 꽁머니 지급 및 게임 진입 허용
                         setTimeout(() => {
                             flashOverlay.classList.remove('flash-anim');
-                            alert('⚠️ [경고] 당신의 정보가 유출되는 전형적인 불법 사이트 수법입니다.\n\n하지만 데모를 위해, 꽁머니 100,000원이 지급되었습니다.\n이제 닫기 버튼을 누르고 도박의 덫에 빠지는 과정을 직접 체험해 보세요.');
+                            alert('⚠️ [경고] 당신의 정보가 유출되는 전형적인 불법 사이트 수법입니다.\n\n하지만 데모를 위해, 꽁머니 50,000원이 지급되었습니다.\n이제 닫기 버튼을 누르고 도박의 덫에 빠지는 과정을 직접 체험해 보세요.');
                             
                             // 로그인 완료 처리
                             modal.style.display = 'none';
                             window.isAuthenticated = true;
-                            window.userBalance = 100000;
+                            window.userBalance = 50000;
                             
                             // 잔액 업데이트
                             userBalanceSpan.innerText = window.userBalance.toLocaleString() + ' 원';
