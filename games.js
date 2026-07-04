@@ -161,6 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
             initAudio();
             const title = menu.innerText;
             if (title.includes('충전')) openDeposit(title);
+            else if (title.includes('환전')) openWithdrawal(title);
             else openConstruction(title);
         });
     });
@@ -857,5 +858,145 @@ document.addEventListener('DOMContentLoaded', () => {
             window.updateBalance(amt);
             closeOverlayBtn.click();
         });
+    }
+
+    // ==========================================
+    // 환전 먹튀 시뮬레이션
+    // ==========================================
+    function openWithdrawal(title) {
+        overlayTitle.innerText = title;
+        closeOverlayBtn.innerText = '닫기';
+        closeOverlayBtn.style.color = 'var(--accent-primary)';
+        closeOverlayBtn.style.fontWeight = 'normal';
+        gameOverlay.classList.remove('hidden');
+        
+        overlayContent.innerHTML = `
+            <div class="withdrawal-form">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <p style="color: var(--text-muted); font-size: 0.9rem;">현재 출금 가능 잔액</p>
+                    <h2 style="color: var(--accent-primary); margin: 5px 0; font-size: 2rem;">${window.userBalance.toLocaleString()} 원</h2>
+                </div>
+                
+                <div class="input-group">
+                    <label style="color:#aaa; font-size:1rem; display:block; margin-bottom:5px;">환전 신청 금액</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="number" id="withdrawal-amount" placeholder="최소 30,000원 이상" style="flex: 1; font-size: 1.2rem; padding: 15px;">
+                        <button id="btn-withdraw-max" style="background: #333; color: var(--accent-primary); border: 1px solid #555; border-radius: 8px; padding: 0 20px; font-weight: bold; cursor: pointer;">MAX</button>
+                    </div>
+                </div>
+                
+                <button id="btn-submit-withdrawal" class="btn-full-pink" style="margin-top: 20px; padding: 15px; font-size: 1.2rem;">환전 신청하기</button>
+
+                <div id="withdrawal-loading" class="hidden" style="text-align: center; margin-top: 30px;">
+                    <div class="withdrawal-loader"></div>
+                    <p style="color: var(--accent-primary); margin-top: 15px; font-weight: bold;">환전 요청을 처리 중입니다...</p>
+                    <p style="color: #aaa; font-size: 0.8rem;">잠시만 기다려주세요.</p>
+                </div>
+            </div>
+        `;
+        
+        const amountInput = document.getElementById('withdrawal-amount');
+        const maxBtn = document.getElementById('btn-withdraw-max');
+        const submitBtn = document.getElementById('btn-submit-withdrawal');
+        const loadingDiv = document.getElementById('withdrawal-loading');
+        
+        maxBtn.addEventListener('click', () => {
+            amountInput.value = window.userBalance;
+        });
+
+        submitBtn.addEventListener('click', () => {
+            const amt = parseInt(amountInput.value);
+            if (isNaN(amt) || amt < 30000) {
+                playSound('lose');
+                alert('최소 30,000원 이상 환전 가능합니다.');
+                return;
+            }
+            if (amt > window.userBalance) {
+                playSound('lose');
+                alert('보유 잔액을 초과할 수 없습니다.');
+                return;
+            }
+
+            // UI 변경 (로딩 중)
+            submitBtn.classList.add('hidden');
+            amountInput.disabled = true;
+            maxBtn.disabled = true;
+            loadingDiv.classList.remove('hidden');
+            playSound('tick');
+
+            // 2.5초 후 먹튀 시나리오 발동
+            setTimeout(() => {
+                showScamAlert(amt);
+            }, 2500);
+        });
+
+        function showScamAlert(amt) {
+            playSound('lose');
+            
+            const scenarios = [
+                {
+                    type: "rolling",
+                    title: "환전 거부: 롤링 미달",
+                    msg: "보유머니 환전을 위해선 충전금 대비 300% 롤링을 충족하셔야 합니다.<br><br>현재 롤링이 <b>45% 부족</b>합니다. 배팅을 더 진행해 주세요."
+                },
+                {
+                    type: "violation",
+                    title: "시스템 알림: 규정 위반 적발",
+                    msg: "회원님의 계정에서 <b>비정상적인 양방/시스템 배팅 내역</b>이 적발되었습니다.<br><br>고객센터(텔레그램)로 소명 자료를 제출하시기 전까지 환전 처리가 무기한 보류됩니다."
+                },
+                {
+                    type: "delay",
+                    title: "환전 지연 안내",
+                    msg: "현재 가상계좌 발급 은행의 정기 점검 및 <b>금융감독원 모니터링</b>으로 인해 환전 처리가 지연되고 있습니다.<br><br>처리까지 최대 48시간이 소요될 수 있습니다."
+                },
+                {
+                    type: "ban",
+                    title: "계정 차단 안내",
+                    msg: "관리자에 의해 <b>아이디가 영구 차단</b>되었습니다.<br>접근 권한이 없으며 모든 잔액은 몰수 처리됩니다."
+                },
+                {
+                    type: "new_scam",
+                    title: "고객센터: 추가 입금 요구",
+                    msg: "안전한 대액 환전을 위해 회원님 명의의 <b>전용 가상계좌 개설</b>이 필요합니다.<br><br>계좌 활성화 보증금 명목으로 환전 신청 금액의 <b>10%(${Math.floor(amt * 0.1).toLocaleString()}원)</b>를 먼저 입금해 주셔야 즉시 환전이 승인됩니다."
+                }
+            ];
+
+            const randomScam = scenarios[Math.floor(Math.random() * scenarios.length)];
+            
+            const modalHtml = `
+                <div class="scam-alert-modal">
+                    <h3 style="color: #ff3366; margin-top: 0;">🚨 ${randomScam.title}</h3>
+                    <p style="line-height: 1.6; color: #eee;">${randomScam.msg}</p>
+                    <div style="margin-top: 20px;">
+                        ${randomScam.type === 'ban' 
+                            ? `<button id="btn-scam-confirm" class="btn-full-pink">확인</button>` 
+                            : `<button id="btn-scam-confirm" class="btn-full-pink">고객센터 문의하기</button>`
+                        }
+                    </div>
+                </div>
+            `;
+
+            loadingDiv.innerHTML = modalHtml;
+
+            document.getElementById('btn-scam-confirm').addEventListener('click', () => {
+                if (randomScam.type === 'ban') {
+                    // 통짜 먹튀: 초기화면으로 쫓아냄
+                    window.userBalance = 0;
+                    window.isAuthenticated = false;
+                    document.getElementById('user-balance').innerText = '0';
+                    document.getElementById('user-balance').classList.add('hidden');
+                    document.querySelector('.auth-buttons').style.display = 'flex';
+                    gameOverlay.classList.add('hidden');
+                    overlayContent.innerHTML = '';
+                    alert('세션이 만료되었습니다.');
+                } else if (randomScam.type === 'new_scam') {
+                    alert('입금 코드가 잘못 기재되었습니다.\n전산 오류 해결을 위해 동일한 금액을 재입금하셔야 합니다.\n(이러한 방식으로 피해액이 계속 늘어납니다.)');
+                    closeOverlayBtn.click();
+                } else {
+                    alert('고객센터와 연결할 수 없습니다. (응답 없음)');
+                    closeOverlayBtn.click();
+                }
+            });
+        }
     }
 });
