@@ -15,6 +15,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // 페이지 로드 시 모달 숨김
     modal.style.display = 'none';
 
+    const adPopup = document.getElementById('ad-popup-modal');
+    // 로드 시 팝업 띄우기 (만약 로컬스토리지에 숨김 처리 안 되어 있다면)
+    if (localStorage.getItem('hideAdPopup') !== 'true') {
+        adPopup.style.display = 'flex';
+    }
+
+    const closeAdPopup = () => {
+        adPopup.style.display = 'none';
+        localStorage.setItem('hideAdPopup', 'true'); // 한번 보면 숨김 처리
+    };
+
+    document.getElementById('btn-ad-close').addEventListener('click', closeAdPopup);
+    document.getElementById('btn-ad-confirm').addEventListener('click', closeAdPopup);
+
     // 화면 내의 거의 모든 유도 버튼들 (.sim-trigger)
     const triggerBtns = document.querySelectorAll('.sim-trigger');
     triggerBtns.forEach(btn => {
