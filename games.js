@@ -523,9 +523,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button class="quick-btn max" data-val="max">MAX</button>
                         <button class="quick-btn reset" data-val="reset">초기화</button>
                     </div>
-                    <div class="amount-input-box">
-                        <span>베팅 금액</span>
-                        <b id="mg-bet-amount">0</b>
+                    <div class="amount-input-box" style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="text-align: left;">
+                            <span style="font-size: 0.8rem; color: #aaa;">베팅 금액</span><br>
+                            <b id="mg-bet-amount" style="font-size: 1.2rem;">0</b>
+                        </div>
+                        <div style="text-align: right;">
+                            <span style="font-size: 0.8rem; color: #ffd700;">예상 당첨금 (배당: <span id="mg-rate-display">1.95</span>)</span><br>
+                            <b id="mg-expected-win" style="font-size: 1.2rem; color: #ffd700;">0</b>
+                        </div>
                     </div>
                     <button class="btn-full-pink" id="mg-bet-btn" style="padding: 15px; font-size: 1.2rem;">베팅하기</button>
                 </div>
@@ -543,15 +549,23 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
         
-        let selectedOption = null;
+        let selectedOptions = [];
         let currentBet = 0;
         let isBettingClosed = false;
         
         const betAmountText = document.getElementById('mg-bet-amount');
+        const expectedWinText = document.getElementById('mg-expected-win');
+        const rateDisplayText = document.getElementById('mg-rate-display');
         const betBtn = document.getElementById('mg-bet-btn');
         const timerText = document.getElementById('mg-timer');
         const chatBox = document.getElementById('fake-chat-box');
         
+        function updateExpectedWin() {
+            let currentRate = selectedOptions.length === 2 ? 3.80 : 1.95;
+            rateDisplayText.innerText = currentRate.toFixed(2);
+            expectedWinText.innerText = Math.floor(currentBet * currentRate).toLocaleString();
+        }
+
         const helpBtn = document.getElementById('help-btn');
         const helpModal = document.getElementById('help-modal');
         if (helpBtn && helpModal) {
@@ -575,17 +589,46 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 if (currentBet > window.userBalance) currentBet = window.userBalance;
                 betAmountText.innerText = currentBet.toLocaleString();
+                updateExpectedWin();
             });
         });
         
-        // 옵션 선택 로직
+        // 옵션 그룹 정의
+        const getGroup = (type) => {
+            if (['left', 'right'].includes(type)) return 'group1';
+            if (['3line', '4line'].includes(type)) return 'group2';
+            if (['odd', 'even'].includes(type)) return 'group1';
+            if (['under', 'over'].includes(type)) return 'group2';
+            return 'group1';
+        };
+
+        // 옵션 선택 로직 (묶음 배팅 적용)
         overlayContent.querySelectorAll('.option-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 if(isBettingClosed) return;
                 playSound('chip');
-                overlayContent.querySelectorAll('.option-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                selectedOption = btn.getAttribute('data-type');
+                
+                const type = btn.getAttribute('data-type');
+                const group = getGroup(type);
+                
+                const index = selectedOptions.indexOf(type);
+                if (index > -1) {
+                    selectedOptions.splice(index, 1);
+                    btn.classList.remove('active');
+                } else {
+                    const existingInGroup = selectedOptions.find(opt => getGroup(opt) === group);
+                    if (existingInGroup) {
+                        selectedOptions = selectedOptions.filter(opt => opt !== existingInGroup);
+                        overlayContent.querySelector(`.option-btn[data-type="${existingInGroup}"]`).classList.remove('active');
+                    }
+                    
+                    if (selectedOptions.length < 2) {
+                        selectedOptions.push(type);
+                        btn.classList.add('active');
+                    }
+                }
+                
+                updateExpectedWin();
             });
         });
         
@@ -653,9 +696,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         betBtn.addEventListener('click', () => {
             if (isBettingClosed || betBtn.disabled) return;
-            if (!selectedOption) {
+            if (selectedOptions.length === 0) {
                 playSound('lose');
-                alert('베팅할 옵션을 선택해주세요.');
+                alert('베팅할 옵션을 1개 이상 선택해주세요.');
                 return;
             }
             if (currentBet <= 0) {
@@ -681,35 +724,45 @@ document.addEventListener('DOMContentLoaded', () => {
             playSound('tick');
             
             window.playCount++;
-            let winResult;
             let finalStart, finalLines, isOdd, resultNum, winAmount = 0;
             let won = false;
 
             if (isLadder) {
                 // 사다리 로직 결정
-                if (!selectedOption) {
+                if (selectedOptions.length === 0) {
                     finalStart = Math.random() > 0.5 ? 'left' : 'right';
                     finalLines = Math.random() > 0.5 ? 3 : 4;
                     window.playCount--; 
                 } else {
-                    let rate = 1.95; // 사다리 고정 배당률
+                    let rate = selectedOptions.length === 2 ? 3.80 : 1.95;
                     won = getRiggedOutcome(currentBet, rate);
                     
                     if (won) {
-                        if (selectedOption === 'left' || selectedOption === 'right') {
-                            finalStart = selectedOption;
-                            finalLines = Math.random() > 0.5 ? 3 : 4;
-                        } else {
-                            finalLines = selectedOption === '3line' ? 3 : 4;
-                            finalStart = Math.random() > 0.5 ? 'left' : 'right';
-                        }
+                        // 승리: 선택한 조건 모두 일치
+                        finalStart = selectedOptions.includes('left') ? 'left' : (selectedOptions.includes('right') ? 'right' : (Math.random() > 0.5 ? 'left' : 'right'));
+                        finalLines = selectedOptions.includes('3line') ? 3 : (selectedOptions.includes('4line') ? 4 : (Math.random() > 0.5 ? 3 : 4));
                     } else {
-                        if (selectedOption === 'left' || selectedOption === 'right') {
-                            finalStart = selectedOption === 'left' ? 'right' : 'left';
-                            finalLines = Math.random() > 0.5 ? 3 : 4;
+                        // 패배: 최소 1개 조건 빗나가게
+                        if (selectedOptions.length === 2) {
+                            let failFirst = Math.random() > 0.5;
+                            let failSecond = !failFirst || Math.random() > 0.5;
+                            
+                            let targetStart = selectedOptions.includes('left') ? 'left' : (selectedOptions.includes('right') ? 'right' : null);
+                            let targetLines = selectedOptions.includes('3line') ? 3 : (selectedOptions.includes('4line') ? 4 : null);
+                            
+                            if (targetStart && failFirst) targetStart = targetStart === 'left' ? 'right' : 'left';
+                            if (targetLines && failSecond) targetLines = targetLines === 3 ? 4 : 3;
+                            
+                            finalStart = targetStart || (Math.random() > 0.5 ? 'left' : 'right');
+                            finalLines = targetLines || (Math.random() > 0.5 ? 3 : 4);
                         } else {
-                            finalLines = selectedOption === '3line' ? 4 : 3;
-                            finalStart = Math.random() > 0.5 ? 'left' : 'right';
+                            if (selectedOptions.includes('left') || selectedOptions.includes('right')) {
+                                finalStart = selectedOptions.includes('left') ? 'right' : 'left';
+                                finalLines = Math.random() > 0.5 ? 3 : 4;
+                            } else {
+                                finalLines = selectedOptions.includes('3line') ? 4 : 3;
+                                finalStart = Math.random() > 0.5 ? 'left' : 'right';
+                            }
                         }
                     }
                 }
@@ -719,9 +772,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (finalStart === 'left' && finalLines === 4) isOdd = true;
                 if (finalStart === 'right' && finalLines === 3) isOdd = true;
                 resultNum = isOdd ? (Math.floor(Math.random() * 5) * 2 + 1) : (Math.floor(Math.random() * 5) * 2 + 2);
-                
-                if (selectedOption === finalStart || selectedOption === finalLines+'line') won = true;
-                winResult = won ? selectedOption : 'fake';
 
                 // SVG 렌더링
                 const svgBase = document.getElementById('ladder-svg');
@@ -759,27 +809,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
             } else {
                 // 파워볼 로직 결정
-                if (!selectedOption) {
-                    let allOpts = ['odd', 'even', 'under', 'over'];
-                    winResult = allOpts[Math.floor(Math.random() * allOpts.length)];
+                if (selectedOptions.length === 0) {
+                    resultNum = Math.floor(Math.random() * 5) * 2 + 1; // 기본 랜덤 생성
                     window.playCount--; 
                 } else {
-                    let rate = 1.95;
+                    let rate = selectedOptions.length === 2 ? 3.80 : 1.95;
                     won = getRiggedOutcome(currentBet, rate);
                     
-                    if (won) {
-                        winResult = selectedOption;
-                    } else {
-                        let allOpts = ['odd', 'even', 'under', 'over'];
-                        let others = allOpts.filter(o => o !== selectedOption);
-                        winResult = others[Math.floor(Math.random() * others.length)];
+                    let targetOddEven = selectedOptions.includes('odd') ? 'odd' : (selectedOptions.includes('even') ? 'even' : (Math.random() > 0.5 ? 'odd' : 'even'));
+                    let targetUnderOver = selectedOptions.includes('under') ? 'under' : (selectedOptions.includes('over') ? 'over' : (Math.random() > 0.5 ? 'under' : 'over'));
+                    
+                    if (!won) {
+                        // 패배 시 최소 하나 어긋나게 조작
+                        if (selectedOptions.length === 2) {
+                            let failFirst = Math.random() > 0.5;
+                            let failSecond = !failFirst || Math.random() > 0.5;
+                            if (failFirst) targetOddEven = targetOddEven === 'odd' ? 'even' : 'odd';
+                            if (failSecond) targetUnderOver = targetUnderOver === 'under' ? 'over' : 'under';
+                        } else {
+                            if (selectedOptions.includes('odd') || selectedOptions.includes('even')) {
+                                targetOddEven = targetOddEven === 'odd' ? 'even' : 'odd';
+                            } else {
+                                targetUnderOver = targetUnderOver === 'under' ? 'over' : 'under';
+                            }
+                        }
                     }
-                }
 
-                if (winResult === 'odd' || winResult === 'under') {
-                    resultNum = Math.floor(Math.random() * 5) * 2 + 1; // 홀수
-                } else {
-                    resultNum = Math.floor(Math.random() * 5) * 2 + 2; // 짝수
+                    // 15 ~ 130 난수 생성하여 target 조건 맞추기
+                    let min = targetUnderOver === 'under' ? 15 : 73;
+                    let max = targetUnderOver === 'under' ? 72 : 130;
+                    
+                    let generated = min + Math.floor(Math.random() * (max - min));
+                    let isGeneratedOdd = generated % 2 !== 0;
+                    let needOdd = targetOddEven === 'odd';
+                    
+                    if (isGeneratedOdd !== needOdd) {
+                        generated += 1;
+                        if (generated > max) generated -= 2;
+                    }
+                    resultNum = generated;
                 }
 
                 const pbRes = document.getElementById('pb-result');
@@ -790,13 +858,14 @@ document.addEventListener('DOMContentLoaded', () => {
             
             
             setTimeout(() => {
-                if(!selectedOption || betBtn.innerText === '베팅 마감됨' && currentBet === 0) {
+                if(selectedOptions.length === 0 || betBtn.innerText === '베팅 마감됨' && currentBet === 0) {
                     setTimeout(() => openMiniGame(title, gameType), 2000);
                     return;
                 }
                 
                 if (won) {
-                    winAmount = currentBet * 1.95;
+                    let rate = selectedOptions.length === 2 ? 3.80 : 1.95;
+                    winAmount = currentBet * rate;
                     window.updateBalance(winAmount);
                     document.getElementById('mg-current-balance').innerText = window.userBalance.toLocaleString();
                 }
@@ -809,13 +878,24 @@ document.addEventListener('DOMContentLoaded', () => {
                     lRes.classList.add('show');
                 }
                 
+                // 정답 옵션 하이라이트
+                let correctOptions = [];
+                if (isLadder) {
+                    correctOptions.push(finalStart);
+                    correctOptions.push(finalLines + 'line');
+                } else {
+                    correctOptions.push(resultNum % 2 !== 0 ? 'odd' : 'even');
+                    correctOptions.push(resultNum < 72.5 ? 'under' : 'over');
+                }
+                
                 overlayContent.querySelectorAll('.option-btn').forEach(b => {
-                    if (b.getAttribute('data-type') === winResult) {
+                    if (correctOptions.includes(b.getAttribute('data-type'))) {
                         b.classList.add('active');
                         b.style.boxShadow = '0 0 20px #ffd700';
                         b.style.backgroundColor = 'rgba(255,215,0,0.5)';
                     } else {
                         b.style.opacity = '0.3';
+                        b.classList.remove('active');
                     }
                 });
                 
