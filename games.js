@@ -948,6 +948,19 @@ document.addEventListener('DOMContentLoaded', () => {
         
         overlayContent.innerHTML = `
             <div class="deposit-form">
+                <!-- Special Event Banner -->
+                <div class="event-banner neon-glow" style="background-color: #1a1a1a; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #8B0000; text-align: left; font-family: sans-serif;">
+                    <h3 style="color: #ff3366; text-align: center; margin-top: 0; font-weight: bold; font-size: 1.15rem;">🔥 [대박 지인 추천 & 공유 이벤트] 🔥</h3>
+                    <p style="color: #ddd; font-size: 0.95rem; line-height: 1.6; margin-bottom: 10px; word-break: keep-all; font-weight: bold;">
+                        💬 카톡/텔레 단톡방에 홍보 화면 캡처 시<br>👉 <span class="blink-yellow">꽁머니 1만 원</span> 즉시 지급! 💸<br><br>
+                        🤝 내 추천인 코드로 지인 가입 시<br>👉 묻지도 따지지도 않고 <span class="blink-yellow">꽁머니 5만 원</span> 무한 지급! 🎁
+                    </p>
+                    <div style="display: flex; gap: 10px; justify-content: center; margin-top: 15px;">
+                        <button id="btn-share-kakao" style="background: #fee500; color: #3c1e1e; border: none; padding: 10px; border-radius: 4px; font-weight: bold; flex: 1; cursor: pointer; font-size: 0.9rem;">💬 공유하기</button>
+                        <button id="btn-copy-code" style="background: #333; color: #fff; border: 1px solid #ffd700; padding: 10px; border-radius: 4px; font-weight: bold; flex: 1; cursor: pointer; font-size: 0.9rem;">🎁 추천인 복사하기</button>
+                    </div>
+                </div>
+
                 <h4 style="font-size: 1.2rem;">입금 계좌 안내 (대포통장 주의)</h4>
                 <div class="deposit-box">
                     <p style="color: #ff3366; font-weight: bold;">입금하실 전용 가상계좌입니다.</p>
@@ -963,6 +976,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 <button id="btn-submit-deposit" class="btn-full-pink" style="margin-top: 10px; padding: 15px; font-size: 1.2rem;">입금 신청 완료하기</button>
             </div>
         `;
+
+        document.getElementById('btn-share-kakao').addEventListener('click', () => {
+            playSound('click');
+            alert("관리자 확인 후 지급됩니다.");
+        });
+        
+        document.getElementById('btn-copy-code').addEventListener('click', () => {
+            playSound('click');
+            alert("코드가 복사되었습니다.");
+        });
         
         document.getElementById('btn-submit-deposit').addEventListener('click', () => {
             const amt = parseInt(document.getElementById('deposit-amount').value);
